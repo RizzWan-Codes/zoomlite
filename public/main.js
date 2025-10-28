@@ -278,26 +278,37 @@ async function handleAnswer(from, answer) {
   await pc.setRemoteDescription(new RTCSessionDescription(answer));
 }
 
-// --- Auto layout like Zoom ---
+// --- Auto layout like Zoom (FIXED GRID) ---
 function resizeGrid() {
   const grid = document.getElementById('videoGrid');
-  const videos = grid.querySelectorAll('video');
+  const videos = Array.from(grid.querySelectorAll('video'));
   const count = videos.length;
 
-  let width, height;
-  if (count === 1) { width = '100%'; height = '100vh'; }
-  else if (count === 2) { width = '50%'; height = '100vh'; }
-  else if (count === 3) {
-    width = '50%'; height = '50vh';
-    videos[0].style.width = '100%';
-    videos[0].style.height = '50vh';
-  } else if (count === 4) { width = '50%'; height = '50vh'; }
-  else if (count <= 6) { width = '33.33%'; height = '50vh'; }
-  else { width = '25%'; height = '33vh'; }
+  if (count === 0) return;
 
-  videos.forEach((v, i) => {
-    if (count === 3 && i === 0) return;
-    v.style.width = width;
-    v.style.height = height;
+  let cols = 1;
+  if (count === 1) cols = 1;
+  else if (count === 2) cols = 2;
+  else if (count <= 4) cols = 2;
+  else if (count <= 6) cols = 3;
+  else if (count <= 9) cols = 3;
+  else cols = 4;
+
+  const rows = Math.ceil(count / cols);
+  const width = 100 / cols;
+  const height = 100 / rows;
+
+  grid.style.display = 'grid';
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+  grid.style.justifyItems = 'center';
+  grid.style.alignItems = 'center';
+  grid.style.gap = '8px';
+
+  videos.forEach((v) => {
+    v.style.width = `${width}vw`;
+    v.style.height = `${height}vh`;
+    v.style.objectFit = 'cover';
+    v.style.borderRadius = '12px';
   });
 }
