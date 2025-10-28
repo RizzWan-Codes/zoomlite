@@ -1,83 +1,130 @@
-// main.js
-const SERVER = (location.hostname === 'localhost') ? 'http://localhost:3000' : 'https://zoomlite.onrender.com';
-const socket = io(SERVER);
+// main.js 🚀 Zoom x1000 Lite
 
+// 🌍 Server URL (local or deployed)
+const SERVER = (location.hostname === 'localhost')
+  ? 'http://localhost:3000'
+  : 'https://zoomlite.onrender.com'; // ⚠️ Replace with your Render URL
+
+const socket = io(SERVER);
+let userName = localStorage.getItem('userName') || null;
+
+// 🧠 Wait for name before joining
+if (!userName) {
+  window.addEventListener('nameSet', (e) => {
+    userName = e.detail;
+    console.log("✅ Name received:", userName);
+    enableJoin();
+  });
+} else {
+  console.log("🧠 Using saved name:", userName);
+  enableJoin();
+}
+
+function enableJoin() {
+  const joinBtn = document.getElementById('joinBtn');
+  if (joinBtn) {
+    joinBtn.disabled = false;
+    console.log("🚀 Join button enabled");
+  } else {
+    console.warn("Join button not found yet");
+  }
+}
+
+// --- WebRTC configuration ---
 const cfg = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     {
-      urls: 'turn:relay1.expressturn.com:3478',
-      username: 'efree',
-      credential: 'efree'
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
     }
   ]
 };
 
-
-const pcs = {}; // peerId -> RTCPeerConnection
-const remoteVideoEls = {}; // peerId -> video element
+// --- Global variables ---
+const pcs = {};               // peerId -> RTCPeerConnection
+const remoteVideoEls = {};    // peerId -> video element
 let localStream = null;
 let roomId = null;
 
-const videos = document.getElementById('videos');
+// --- Elements ---
+const videoGrid = document.getElementById('videoGrid');
 const joinBtn = document.getElementById('joinBtn');
 const leaveBtn = document.getElementById('leaveBtn');
 const toggleVideoBtn = document.getElementById('toggleVideoBtn');
 const toggleAudioBtn = document.getElementById('toggleAudioBtn');
 const shareScreenBtn = document.getElementById('shareScreenBtn');
 const roomInput = document.getElementById('room');
-const chatin = document.getElementById('chatin');
-const sendChatBtn = document.getElementById('sendChatBtn');
+const chatToggleBtn = document.getElementById("chatToggleBtn");
+const sendChatBtn = document.getElementById("sendChatBtn");
+const chatInput = document.getElementById("chatin");
+const chatBox = document.getElementById("chatMessages");
+
+// --- Initial States ---
+chatToggleBtn.disabled = false; // Always active
+sendChatBtn.disabled = true;    // Locked until joining
 
 joinBtn.onclick = async () => {
-  if (!roomInput.value) return alert('Enter a room id');
-  roomId = roomInput.value;
+  if (!userName) return alert("Please enter your name first!");
+  if (!roomInput.value) return alert("Enter a room ID");
+  roomId = roomInput.value.trim();
+
   await startLocalMedia();
-  socket.emit('join-room', roomId, { name: 'guest' });
+  socket.emit("join-room", roomId, { name: userName });
+
   joinBtn.disabled = true;
   leaveBtn.disabled = false;
   toggleVideoBtn.disabled = false;
   toggleAudioBtn.disabled = false;
   shareScreenBtn.disabled = false;
   sendChatBtn.disabled = false;
+
+  appendChat({ msg: "Waiting for others to join the meeting...", sender: "System" });
 };
 
+
+// --- Leave Room ---
 leaveBtn.onclick = () => {
-  // close connections
   for (const pid in pcs) pcs[pid].close();
   Object.values(remoteVideoEls).forEach(v => v.remove());
   Object.keys(pcs).forEach(k => delete pcs[k]);
-  for (const t of localStream.getTracks()) t.stop();
+  if (localStream) localStream.getTracks().forEach(t => t.stop());
+  sendChatBtn.disabled = true;
+
   socket.disconnect();
   location.reload();
 };
 
+// --- Toggle Cam ---
 toggleVideoBtn.onclick = () => {
   if (!localStream) return;
   const vidTrack = localStream.getVideoTracks()[0];
   if (!vidTrack) return;
   vidTrack.enabled = !vidTrack.enabled;
-  toggleVideoBtn.textContent = vidTrack.enabled ? 'Cam Off' : 'Cam On';
+  toggleVideoBtn.textContent = vidTrack.enabled ? '🎥 Cam Off' : '🎥 Cam On';
 };
 
+// --- Toggle Mic ---
 toggleAudioBtn.onclick = () => {
   if (!localStream) return;
   const audioTrack = localStream.getAudioTracks()[0];
   if (!audioTrack) return;
   audioTrack.enabled = !audioTrack.enabled;
-  toggleAudioBtn.textContent = audioTrack.enabled ? 'Mic Off' : 'Mic On';
+  toggleAudioBtn.textContent = audioTrack.enabled ? '🎙️ Mic Off' : '🎙️ Mic On';
 };
 
+// --- Screen Share ---
 shareScreenBtn.onclick = async () => {
   try {
     const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-    // replace tracks for all peer connections
     const screenTrack = screenStream.getVideoTracks()[0];
+
     for (const pid in pcs) {
       const sender = pcs[pid].getSenders().find(s => s.track && s.track.kind === 'video');
       if (sender) sender.replaceTrack(screenTrack);
     }
-    // when screen sharing stops, revert to camera
+
     screenTrack.onended = async () => {
       const camTrack = localStream.getVideoTracks()[0];
       for (const pid in pcs) {
@@ -86,69 +133,49 @@ shareScreenBtn.onclick = async () => {
       }
     };
   } catch (e) {
-    console.warn('screen share failed', e);
+    console.warn('Screen share failed', e);
   }
 };
 
-sendChatBtn.onclick = () => {
-  const msg = chatin.value.trim();
-  if (!msg) return;
-  socket.emit('send-chat', { roomId, msg, sender: socket.id });
-  appendChat({ msg, sender: 'me' });
-  chatin.value = '';
-};
-
-function appendChat({ msg, sender }) {
-  const d = document.createElement('div');
-  d.textContent = (sender === 'me') ? `You: ${msg}` : `${sender}: ${msg}`;
-  d.style.padding = '6px';
-  d.style.fontSize = '13px';
-  d.style.opacity = '0.85';
-  videos.appendChild(d);
-  videos.scrollTop = videos.scrollHeight;
-}
-
+// --- Start Camera ---
 async function startLocalMedia() {
   localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  // show local video
   const localV = document.createElement('video');
   localV.autoplay = true;
-  localV.muted = true; // avoid echo
+  localV.muted = true;
   localV.playsInline = true;
   localV.srcObject = localStream;
-  videos.prepend(localV);
+  localV.dataset.type = 'local';
+  videoGrid.appendChild(localV);
+  resizeGrid();
 }
 
-// Signalling handlers
-socket.on('connect', () => console.log('connected to signalling', socket.id));
+// --- Socket.IO handlers ---
+socket.on('connect', () => console.log('✅ Connected to signalling server:', socket.id));
 
 socket.on('existing-peers', async (existing) => {
-  // existing = array of peer ids already in room
   for (const peerId of existing) await createOffer(peerId);
 });
 
-socket.on('new-peer', async ({ peerId }) => {
-  // someone new joined — wait for their offer; but we can create answer when they offer
-  console.log('new peer joined', peerId);
-  // nothing to do until they send offer
+socket.on('new-peer', ({ peerId, info }) => {
+  appendChat({ msg: `${info.name || 'Someone'} joined the meeting.`, sender: 'System' });
 });
 
 socket.on('signal', async ({ from, data }) => {
-  // data.type can be 'offer' / 'answer' / 'ice'
-  if (data.type === 'offer') {
-    await handleOffer(from, data);
-  } else if (data.type === 'answer') {
-    await handleAnswer(from, data);
-  } else if (data.type === 'ice') {
+  if (data.type === 'offer') await handleOffer(from, data);
+  else if (data.type === 'answer') await handleAnswer(from, data);
+  else if (data.type === 'ice') {
     const pc = pcs[from];
     if (pc) await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
   }
 });
 
 socket.on('peer-left', (peerId) => {
+  appendChat({ msg: "A participant left the meeting.", sender: "System" });
   if (remoteVideoEls[peerId]) {
     remoteVideoEls[peerId].remove();
     delete remoteVideoEls[peerId];
+    resizeGrid();
   }
   if (pcs[peerId]) {
     pcs[peerId].close();
@@ -156,29 +183,55 @@ socket.on('peer-left', (peerId) => {
   }
 });
 
-// chat
+// --- Chat System ---
+sendChatBtn.onclick = sendChatMessage;
+chatInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') sendChatMessage();
+});
+
+function sendChatMessage() {
+  const msg = chatInput.value.trim();
+  if (!msg || !roomId) return;
+  socket.emit('send-chat', { roomId, msg, sender: userName });
+  appendChat({ msg, sender: 'me' });
+  chatInput.value = '';
+}
+
 socket.on('chat', m => appendChat({ msg: m.msg, sender: m.sender }));
 
-// create peer connection & attach local tracks
+function appendChat({ msg, sender }) {
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' +
+    (sender === 'me' ? 'you' : sender === 'System' ? 'system' : 'other');
+  div.textContent = (sender === 'me')
+    ? `You: ${msg}`
+    : sender === 'System'
+    ? msg
+    : `${sender}: ${msg}`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  const chatPanel = document.getElementById('chatPanel');
+  if (!chatPanel.classList.contains('open') && sender !== 'me') {
+    chatPanel.classList.add('open');
+  }
+}
+
+// --- WebRTC connections ---
 function createPeerConnection(peerId) {
   const pc = new RTCPeerConnection(cfg);
+  if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
-  // add local tracks
-  if (localStream) {
-    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-  }
-
-  // when remote track arrives, create a video element
   pc.ontrack = (ev) => {
     if (!remoteVideoEls[peerId]) {
       const v = document.createElement('video');
       v.autoplay = true;
       v.playsInline = true;
       v.srcObject = ev.streams[0];
-      videos.appendChild(v);
+      v.dataset.peer = peerId;
+      videoGrid.appendChild(v);
       remoteVideoEls[peerId] = v;
-    } else {
-      remoteVideoEls[peerId].srcObject = ev.streams[0];
+      resizeGrid();
     }
   };
 
@@ -189,8 +242,12 @@ function createPeerConnection(peerId) {
   };
 
   pc.onconnectionstatechange = () => {
-    if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
-      if (remoteVideoEls[peerId]) remoteVideoEls[peerId].remove();
+    if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) {
+      if (remoteVideoEls[peerId]) {
+        remoteVideoEls[peerId].remove();
+        delete remoteVideoEls[peerId];
+        resizeGrid();
+      }
       pc.close();
       delete pcs[peerId];
     }
@@ -217,7 +274,30 @@ async function handleOffer(from, offer) {
 
 async function handleAnswer(from, answer) {
   const pc = pcs[from];
-  if (!pc) return console.warn('no pc for', from);
+  if (!pc) return;
   await pc.setRemoteDescription(new RTCSessionDescription(answer));
 }
 
+// --- Auto layout like Zoom ---
+function resizeGrid() {
+  const grid = document.getElementById('videoGrid');
+  const videos = grid.querySelectorAll('video');
+  const count = videos.length;
+
+  let width, height;
+  if (count === 1) { width = '100%'; height = '100vh'; }
+  else if (count === 2) { width = '50%'; height = '100vh'; }
+  else if (count === 3) {
+    width = '50%'; height = '50vh';
+    videos[0].style.width = '100%';
+    videos[0].style.height = '50vh';
+  } else if (count === 4) { width = '50%'; height = '50vh'; }
+  else if (count <= 6) { width = '33.33%'; height = '50vh'; }
+  else { width = '25%'; height = '33vh'; }
+
+  videos.forEach((v, i) => {
+    if (count === 3 && i === 0) return;
+    v.style.width = width;
+    v.style.height = height;
+  });
+}
