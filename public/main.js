@@ -1,5 +1,5 @@
 // main.js
-const SERVER = (location.hostname === 'localhost') ? 'http://localhost:3000' : 'https://YOUR_SERVER_URL';
+const SERVER = (location.hostname === 'localhost') ? 'http://localhost:3000' : 'https://zoomlite.onrender.com';
 const socket = io(SERVER);
 
 const cfg = {
@@ -220,3 +220,4 @@ async function handleAnswer(from, answer) {
   if (!pc) return console.warn('no pc for', from);
   await pc.setRemoteDescription(new RTCSessionDescription(answer));
 }
+
