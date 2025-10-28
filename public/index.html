@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Zoom Lite</title>
+<style>
+  body { font-family: system-ui, Arial; background:#0f172a; color:#e6eef8; margin:0; }
+  #controls { padding:12px; display:flex; gap:8px; align-items:center; }
+  #videos { display:grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap:8px; padding:12px; }
+  video { width:100%; height:160px; object-fit:cover; background:#000; border-radius:8px; }
+  .tiny { width:24px; height:24px; }
+  input#room { width:200px; padding:6px; }
+  button { padding:8px 10px; border-radius:6px; border:none; cursor:pointer; }
+</style>
+</head>
+<body>
+  <div id="controls">
+    <input id="room" placeholder="Enter room id (e.g. party-room-1)" />
+    <button id="joinBtn">Join Room</button>
+    <button id="leaveBtn" disabled>Leave</button>
+    <button id="toggleVideoBtn" disabled>Cam Off</button>
+    <button id="toggleAudioBtn" disabled>Mic Off</button>
+    <button id="shareScreenBtn" disabled>Share Screen</button>
+    <input id="chatin" placeholder="Say something..." />
+    <button id="sendChatBtn" disabled>Send</button>
+  </div>
+
+  <div id="videos"></div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
