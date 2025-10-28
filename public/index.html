@@ -178,6 +178,56 @@
   to { transform: scale(1); opacity: 1; }
 }
 
+/* Two-pane layout: videos on the left, chat on the right */
+#mainArea {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Left pane: video grid takes remaining space */
+#videoGrid {
+  flex: 1 1 auto;           /* grows/shrinks */
+  min-width: 0;             /* important so it can shrink when chat opens */
+  display: grid;            /* your grid layout still works */
+  gap: 8px;
+  padding: 8px;
+  background: #020617;
+  transition: width 0.3s ease;
+}
+
+/* Right pane: chat starts closed (width 0), slides open to 300px */
+#chatPanel {
+  flex: 0 0 auto;           /* fixed-size sidebar */
+  width: 0;                 /* collapsed by default */
+  opacity: 0;
+  overflow: hidden;
+  background: rgba(15,23,42,0.95);
+  backdrop-filter: blur(12px);
+  border-left: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
+  transform: translateX(8px); /* subtle slide */
+  z-index: 3;                /* above videos */
+}
+
+/* When open, sidebar claims 300px and becomes visible */
+#chatPanel.open {
+  width: 300px;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Make videos resize smoothly */
+#videoGrid video {
+  transition: all 0.25s ease;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+
+
 </style>
 </head>
 
