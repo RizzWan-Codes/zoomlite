@@ -1,317 +1,268 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ZoomLite</title>
-<style>
-  body {
-    margin: 0;
-    font-family: "Poppins", system-ui, sans-serif;
-    background: #0f172a;
-    color: #e2e8f0;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-  }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ZoomLite</title>
 
-  header {
-    padding: 14px 20px;
-    text-align: center;
-    font-weight: 600;
-    font-size: 1.4rem;
-    background: rgba(255,255,255,0.05);
-    backdrop-filter: blur(10px);
-  }
+    <!-- 🌀 Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css"
+      rel="stylesheet"
+    />
 
-  #controls {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 10px;
-    background: rgba(255,255,255,0.06);
-    padding: 12px;
-    z-index: 2;
-  }
+    <!-- 💎 Fonts + Tailwind Config -->
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "system-ui", "sans-serif"],
+              display: ["Sora", "Inter"],
+            },
+            colors: {
+              darkbg: "#0f172a",
+              accent1: "#3b82f6",
+              accent2: "#2563eb",
+            },
+          },
+        },
+      };
+    </script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
 
-  input, button {
-    border: none;
-    outline: none;
-    border-radius: 8px;
-    padding: 8px 12px;
-    font-size: 14px;
-  }
+  <body
+    class="bg-darkbg text-slate-100 flex flex-col h-screen font-sans overflow-hidden"
+  >
+    <!-- 👋 Name Modal -->
+    <div
+      id="nameModal"
+      class="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-md z-50"
+    >
+      <div
+        class="bg-slate-800/80 p-8 rounded-2xl text-center shadow-2xl border border-slate-700 max-w-sm w-[90%]"
+      >
+        <h2 class="text-2xl font-display text-accent1 mb-2">
+          👋 Welcome to ZoomLite
+        </h2>
+        <p class="text-slate-400 mb-4">Enter your name to continue:</p>
 
-  input {
-    background: rgba(255,255,255,0.1);
-    color: #e2e8f0;
-  }
+        <!-- Avatar Preview -->
+        <div
+          id="avatarPreview"
+          class="mx-auto mb-4 w-20 h-20 rounded-full flex items-center justify-center text-3xl font-semibold text-white transition-all duration-300 select-none shadow-md"
+          style="background: linear-gradient(135deg, #3b82f6, #2563eb)"
+        >
+          ?
+        </div>
 
-  input::placeholder { color: #94a3b8; }
+        <input
+          id="nameInput"
+          placeholder="Your name..."
+          class="w-full px-4 py-2 rounded-lg bg-slate-700/60 border border-slate-600 text-center focus:outline-none focus:ring-2 focus:ring-accent1"
+        />
 
-  button {
-    cursor: pointer;
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
-    color: #fff;
-    transition: 0.2s ease;
-  }
-  button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(37,99,235,0.4);
-  }
-  button:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  #mainArea {
-    flex: 1;
-    display: flex;
-    height: 100%;
-    overflow: hidden;
-    position: relative;
-  }
-
-  #videoGrid {
-    flex: 1;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-content: center;
-    align-items: center;
-    gap: 8px;
-    padding: 8px;
-    transition: all 0.4s ease;
-    background: #020617;
-  }
-
-  video {
-    background: #000;
-    object-fit: cover;
-    border-radius: 12px;
-    transition: all 0.4s ease;
-    box-shadow: 0 0 20px rgba(0,0,0,0.3);
-  }
-
-  #chatPanel {
-    width: 0;
-    opacity: 0;
-    overflow: hidden;
-    background: rgba(15,23,42,0.95);
-    backdrop-filter: blur(12px);
-    border-left: 1px solid rgba(255,255,255,0.1);
-    display: flex;
-    flex-direction: column;
-    transition: width 0.4s ease, opacity 0.4s ease;
-  }
-
-  #chatPanel.open { width: 300px; opacity: 1; }
-
-  #chatMessages {
-    flex: 1;
-    padding: 10px;
-    overflow-y: auto;
-    font-size: 14px;
-  }
-
-  .chat-msg { margin-bottom: 8px; word-wrap: break-word; }
-  .chat-msg.you { color: #3b82f6; }
-  .chat-msg.other { color: #a5b4fc; }
-  .chat-msg.system { color: #94a3b8; font-style: italic; }
-
-  #chatInputArea {
-    display: flex;
-    padding: 10px;
-    gap: 8px;
-    border-top: 1px solid rgba(255,255,255,0.08);
-  }
-
-  #chatInputArea input {
-    flex: 1;
-    background: rgba(255,255,255,0.08);
-    color: #e2e8f0;
-  }
-
-  footer {
-    text-align: center;
-    padding: 8px;
-    font-size: 13px;
-    color: #64748b;
-    background: rgba(255,255,255,0.05);
-  }
-
-  /* 🎯 Name Popup */
-  #nameModal {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: rgba(0,0,0,0.7);
-    z-index: 1000;
-    backdrop-filter: blur(6px);
-  }
-
-  #nameBox {
-    background: #1e293b;
-    padding: 30px;
-    border-radius: 12px;
-    text-align: center;
-    box-shadow: 0 0 25px rgba(0,0,0,0.4);
-  }
-
-  #nameBox input {
-    width: 220px;
-    margin-top: 10px;
-    padding: 8px;
-    border-radius: 6px;
-    border: none;
-    outline: none;
-    background: rgba(255,255,255,0.1);
-    color: #fff;
-    text-align: center;
-  }
-
-  #nameBox {
-  animation: popin 0.3s ease-out;
-}
-@keyframes popin {
-  from { transform: scale(0.8); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-/* Two-pane layout: videos on the left, chat on the right */
-#mainArea {
-  display: flex;
-  height: 100%;
-  overflow: hidden;
-}
-
-/* Left pane: video grid takes remaining space */
-#videoGrid {
-  flex: 1 1 auto;           /* grows/shrinks */
-  min-width: 0;             /* important so it can shrink when chat opens */
-  display: grid;            /* your grid layout still works */
-  gap: 8px;
-  padding: 8px;
-  background: #020617;
-  transition: width 0.3s ease;
-}
-
-/* Right pane: chat starts closed (width 0), slides open to 300px */
-#chatPanel {
-  flex: 0 0 auto;           /* fixed-size sidebar */
-  width: 0;                 /* collapsed by default */
-  opacity: 0;
-  overflow: hidden;
-  background: rgba(15,23,42,0.95);
-  backdrop-filter: blur(12px);
-  border-left: 1px solid rgba(255,255,255,0.1);
-  display: flex;
-  flex-direction: column;
-  transition: width 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
-  transform: translateX(8px); /* subtle slide */
-  z-index: 3;                /* above videos */
-}
-
-/* When open, sidebar claims 300px and becomes visible */
-#chatPanel.open {
-  width: 300px;
-  opacity: 1;
-  transform: translateX(0);
-}
-
-/* Make videos resize smoothly */
-#videoGrid video {
-  transition: all 0.25s ease;
-  object-fit: cover;
-  border-radius: 12px;
-}
-
-
-
-</style>
-</head>
-
-<body>
-  <div id="nameModal">
-    <div id="nameBox">
-      <h2>👋 Welcome to ZoomLite Lite</h2>
-      <p>Enter your name to continue:</p>
-      <input id="nameInput" placeholder="Your name..." />
-      <br><br>
-      <button id="saveNameBtn">Continue</button>
-    </div>
-  </div>
-
-  <header>💻 ZoomLite Lite</header>
-
-  <div id="controls">
-    <input id="room" placeholder="Enter Room ID" />
-    <button id="joinBtn">Join</button>
-    <button id="leaveBtn" disabled>Leave</button>
-    <button id="toggleVideoBtn" disabled>🎥 Cam Off</button>
-    <button id="toggleAudioBtn" disabled>🎙️ Mic Off</button>
-    <button id="shareScreenBtn" disabled>🖥️ Share</button>
-    <button id="chatToggleBtn">💬 Chat</button>
-  </div>
-
-  <div id="mainArea">
-    <div id="videoGrid"></div>
-
-    <div id="chatPanel">
-      <div id="chatMessages"></div>
-      <div id="chatInputArea">
-        <input id="chatin" placeholder="Type a message..." />
-        <button id="sendChatBtn" disabled>Send</button>
+        <button
+          id="saveNameBtn"
+          class="mt-5 w-full bg-gradient-to-r from-accent1 to-accent2 py-2 rounded-lg font-medium hover:opacity-90 transition-all"
+        >
+          Continue
+        </button>
       </div>
     </div>
-  </div>
 
-  <footer>Built with ❤️ by Rizwan</footer>
+    <!-- 🧠 Header -->
+    <header
+      class="py-4 flex justify-center items-center gap-3 bg-slate-900/60 backdrop-blur-md border-b border-slate-700 shadow-md"
+    >
+      <h1 class="text-2xl font-display font-semibold">ZoomLite</h1>
+      <span
+        id="roomDisplay"
+        class="text-slate-400 font-medium text-base tracking-wide"
+      ></span>
+    </header>
 
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script src="main.js"></script>
+    <!-- 🎛 Controls -->
+    <div
+      id="controls"
+      class="flex flex-wrap justify-center items-center gap-4 py-3 bg-slate-800/50 backdrop-blur-md border-b border-slate-700"
+    >
+      <div class="flex gap-3 items-center">
+        <button
+          id="createRoomBtn"
+          class="w-12 h-12 flex items-center justify-center rounded-full bg-slate-700 hover:bg-accent1/80 transition-all text-xl"
+          title="Create Room"
+        >
+          <i class="ri-add-circle-line"></i>
+        </button>
+        <input
+          id="room"
+          placeholder="Enter Room ID"
+          class="hidden px-3 py-2 rounded-lg bg-slate-700 text-slate-200 border border-slate-600"
+        />
+        <button
+          id="joinRoomBtn"
+          class="w-12 h-12 flex items-center justify-center rounded-full bg-slate-700 hover:bg-accent2/80 transition-all text-xl"
+          title="Join Room"
+        >
+          <i class="ri-login-circle-line"></i>
+        </button>
+      </div>
 
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const chatPanel = document.getElementById('chatPanel');
-  const chatToggleBtn = document.getElementById('chatToggleBtn');
-  chatToggleBtn.onclick = () => chatPanel.classList.toggle('open');
+      <div id="activeControls" class="hidden flex gap-3">
+        <button
+          id="leaveBtn"
+          disabled
+          class="w-12 h-12 rounded-full bg-slate-700 hover:bg-red-600 flex items-center justify-center transition-all text-xl disabled:opacity-40"
+          title="Leave"
+        >
+          <i class="ri-logout-circle-r-line"></i>
+        </button>
+        <button
+          id="toggleVideoBtn"
+          disabled
+          class="w-12 h-12 rounded-full bg-slate-700 hover:bg-accent1 flex items-center justify-center transition-all text-xl disabled:opacity-40"
+          title="Toggle Camera"
+        >
+          <i class="ri-camera-fill"></i>
+        </button>
+        <button
+          id="toggleAudioBtn"
+          disabled
+          class="w-12 h-12 rounded-full bg-slate-700 hover:bg-accent1 flex items-center justify-center transition-all text-xl disabled:opacity-40"
+          title="Toggle Mic"
+        >
+          <i class="ri-mic-fill"></i>
+        </button>
+        <button
+          id="shareScreenBtn"
+          disabled
+          class="w-12 h-12 rounded-full bg-slate-700 hover:bg-accent2 flex items-center justify-center transition-all text-xl disabled:opacity-40"
+          title="Share Screen"
+        >
+          <i class="ri-computer-line"></i>
+        </button>
+        <button
+          id="chatToggleBtn"
+          class="w-12 h-12 rounded-full bg-slate-700 hover:bg-accent1 flex items-center justify-center transition-all text-xl"
+          title="Chat"
+        >
+          <i class="ri-chat-3-line"></i>
+        </button>
+      </div>
+    </div>
 
-  const nameModal = document.getElementById('nameModal');
-  const saveNameBtn = document.getElementById('saveNameBtn');
-  const nameInput = document.getElementById('nameInput');
- 
+    <!-- 🎥 Main Area -->
+    <div id="mainArea" class="flex flex-1 overflow-hidden">
+      <div
+        id="videoGrid"
+        class="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4 bg-slate-950 relative"
+      ></div>
 
-  joinBtn.disabled = true;
+      <!-- 💬 Chat Panel -->
+      <div
+        id="chatPanel"
+        class="w-0 opacity-0 overflow-hidden flex flex-col bg-slate-900/90 backdrop-blur-md border-l border-slate-800 transition-all duration-300"
+      >
+        <div
+          id="chatMessages"
+          class="flex-1 overflow-y-auto p-4 space-y-2 text-sm"
+        ></div>
 
-  // 👀 Wait for DOM + user to save name
-  function setName(name) {
-    localStorage.setItem('userName', name);
-    nameModal.style.display = 'none';
-    joinBtn.disabled = false;
-    // Dispatch AFTER a micro delay to ensure main.js is ready
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('nameSet', { detail: name }));
-    }, 50);
-  }
+        <div class="border-t border-slate-800 p-3 flex gap-2">
+          <input
+            id="chatin"
+            placeholder="Type a message..."
+            class="flex-1 px-3 py-2 rounded-lg bg-slate-800 text-slate-200 border border-slate-700 focus:outline-none"
+          />
+          <button
+            id="sendChatBtn"
+            disabled
+            class="px-4 py-2 rounded-lg bg-gradient-to-r from-accent1 to-accent2 text-white font-medium disabled:opacity-40"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
 
-  if (localStorage.getItem('userName')) {
-    nameModal.style.display = 'none';
-    joinBtn.disabled = false;
-  }
+    <!-- 🦶 Footer -->
+    <footer
+      class="py-2 text-center text-sm text-slate-500 bg-slate-900/60 border-t border-slate-800"
+    >
+      Built with ❤️ by Rizwan
+    </footer>
 
-  saveNameBtn.onclick = () => {
-    const name = nameInput.value.trim();
-    if (!name) return alert("Please enter your name!");
-    setName(name);
-  };
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="main.js"></script>
 
-  nameInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") saveNameBtn.click();
-  });
-});
-</script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const nameModal = document.getElementById("nameModal");
+        const saveNameBtn = document.getElementById("saveNameBtn");
+        const nameInput = document.getElementById("nameInput");
+        const avatarPreview = document.getElementById("avatarPreview");
 
+        function generateGradient(name) {
+          const seed = [...name].reduce((a, c) => a + c.charCodeAt(0), 0);
+          const hue = seed % 360;
+          const hue2 = (hue + 90 + (seed % 50)) % 360;
+          return `linear-gradient(135deg, hsl(${hue}, 80%, 55%), hsl(${hue2}, 80%, 55%))`;
+        }
 
-</body>
+        function updatePreview(name) {
+          if (!name) {
+            avatarPreview.textContent = "?";
+            avatarPreview.style.background =
+              "linear-gradient(135deg, #3b82f6, #2563eb)";
+            return;
+          }
+          const letter = name.charAt(0).toUpperCase();
+          avatarPreview.textContent = letter;
+          avatarPreview.style.background = generateGradient(name);
+        }
+
+        nameInput.addEventListener("input", (e) =>
+          updatePreview(e.target.value)
+        );
+
+        function setName(name) {
+          const letter = name.charAt(0).toUpperCase();
+          const gradient = generateGradient(name);
+
+          localStorage.setItem(
+            "userData",
+            JSON.stringify({ name, avatar: { letter, gradient } })
+          );
+
+          nameModal.style.display = "none";
+          setTimeout(() => {
+            window.dispatchEvent(
+              new CustomEvent("nameSet", { detail: name })
+            );
+          }, 50);
+        }
+
+        const saved = JSON.parse(localStorage.getItem("userData"));
+        if (saved?.name) {
+          nameModal.style.display = "none";
+        }
+
+        saveNameBtn.onclick = () => {
+          const name = nameInput.value.trim();
+          if (!name) return alert("Please enter your name!");
+          setName(name);
+        };
+
+        nameInput.addEventListener("keypress", (e) => {
+          if (e.key === "Enter") saveNameBtn.click();
+        });
+      });
+    </script>
+  </body>
 </html>
