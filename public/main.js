@@ -204,7 +204,7 @@ socket.emit("join-room", room, {
 
   appendChat({ msg: "Waiting for others to join...", sender: "System" });
 }
-``
+
 
 // ---- Local media + self-view ----
 async function startLocalMedia() {
@@ -330,18 +330,37 @@ leaveBtn.onclick = () => {
   location.reload();
 };
 
-// ---- Chat ----
 chatToggleBtn.onclick = () => {
-  if (chatPanel.classList.contains("open")) {
+  const selfView = document.querySelector(".self-view");
+  const chatIsOpen = chatPanel.classList.contains("open");
+
+  if (chatIsOpen) {
+    // CLOSE chat
     chatPanel.classList.remove("open");
     chatPanel.style.width = "0";
     chatPanel.style.opacity = "0";
+    videoGrid.style.width = "100%";
+
+    if (selfView) {
+      selfView.style.right = "1rem"; // back to corner
+    }
   } else {
+    // OPEN chat
     chatPanel.classList.add("open");
     chatPanel.style.width = "320px";
     chatPanel.style.opacity = "1";
+    videoGrid.style.width = "calc(100% - 320px)";
+    videoGrid.style.transition = "width 0.3s ease";
+
+    if (selfView) {
+      selfView.style.right = "calc(1rem + 320px)";
+    }
   }
+
+  // Trigger grid resize to reposition self-view if needed
+  resizeGrid();
 };
+
 
 sendChatBtn.onclick = sendChat;
 chatInput.addEventListener("keypress", (e) => e.key === "Enter" && sendChat());
@@ -579,6 +598,7 @@ function resizeGrid() {
   // Reset grid classes
   videoGrid.className = "";
   videoGrid.classList.add("flex-1", "bg-slate-950", "grid", "gap-4", "p-4");
+  videoGrid.style.position = "relative"; // 👈 necessary for absolute positioning
 
   // Determine grid based on participant count
   let cols = 1;
@@ -594,37 +614,44 @@ function resizeGrid() {
   videoGrid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
   videoGrid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
 
-  // 🎥 self-view overlay
-  const selfView = document.querySelector(".self-view");
-  if (selfView) {
-    Object.assign(selfView.style, {
-      position: "fixed",
-      bottom: "5rem",
-      right: "2rem",
-      width: "280px",
-      height: "200px",
-      borderRadius: "14px",
-      overflow: "hidden",
-      zIndex: "10",
-      boxShadow: "0 4px 20px rgba(0,0,0,0.6)",
-      background: "#000",
-      transition: "all 0.3s ease",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-    });
+// 🎥 self-view overlay (bottom-right, fixed to viewport)
+const selfView = document.querySelector(".self-view");
+if (selfView) {
+  // calculate right position based on chat panel state
+  const chatIsOpen = chatPanel.classList.contains("open");
+  const rightOffset = chatIsOpen ? "calc(320px + 1rem)" : "1rem";
 
-    const vid = selfView.querySelector("video");
-    if (vid) {
-      Object.assign(vid.style, {
-        width: "100%",
-        height: "100%",
-        objectFit: "cover",
-      });
-    }
+  // perfect bottom-right placement
+  Object.assign(selfView.style, {
+    position: "fixed",
+    bottom: "4.5rem", // 👈 keeps it nicely above the footer
+    right: rightOffset,
+    width: "240px",
+    height: "170px",
+    borderRadius: "14px",
+    overflow: "hidden",
+    zIndex: "50",
+    boxShadow: "0 6px 30px rgba(0,0,0,0.6)",
+    background: "#000",
+    transition: "all 0.25s cubic-bezier(.2,.9,.2,1)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "auto",
+  });
+
+  // make the video fill perfectly
+  const vid = selfView.querySelector("video");
+  if (vid) {
+    Object.assign(vid.style, {
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+      display: "block",
+    });
   }
 }
-
+}
 
 // 🔁 Recalculate layout on window resize or orientation change
 window.addEventListener("resize", resizeGrid);
