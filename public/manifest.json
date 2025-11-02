@@ -1,0 +1,21 @@
+{
+  "name": "ZoomLite",
+  "short_name": "ZoomLite",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#1E40AF",
+  "description": "Fast, minimal, and AI-enhanced video meetings.",
+  "icons": [
+    {
+      "src": "favicon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "favicon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
