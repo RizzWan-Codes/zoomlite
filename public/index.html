@@ -257,12 +257,19 @@
 
     </div>
 
-    <!-- 🦶 Footer -->
-    <footer
-      class="py-2 text-center text-sm text-slate-500 bg-slate-900/60 border-t border-slate-800"
-    >
-      Built with ❤️ by Rizwan
-    </footer>
+  <!-- 🦶 Footer -->
+<footer
+  class="py-3 flex flex-col sm:flex-row justify-center sm:justify-between items-center gap-3 px-4 text-sm text-slate-400 bg-slate-900/70 border-t border-slate-800 backdrop-blur-md"
+>
+  <p>Built with ❤️ by Rizwan</p>
+  <button
+    id="installBtn"
+    class="px-4 py-2 rounded-lg bg-gradient-to-r from-accent1 to-accent2 text-white font-medium hover:opacity-90 transition-all shadow-md"
+  >
+    📱 Install App
+  </button>
+</footer>
+
 
    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="main.js"></script>
@@ -356,5 +363,43 @@ if (window.socket && name) {
           .catch((err) => console.error("Service Worker error:", err));
       }
     </script>
+
+    <script>
+  let deferredPrompt;
+
+  // Capture the install prompt event
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById("installBtn").style.display = "inline-flex";
+  });
+
+  // Handle button click
+  const installBtn = document.getElementById("installBtn");
+  installBtn.style.display = "none"; // Hide by default
+
+  installBtn.addEventListener("click", async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      console.log("✅ PWA installed successfully!");
+      installBtn.textContent = "✅ Installed!";
+      setTimeout(() => (installBtn.style.display = "none"), 2000);
+    } else {
+      console.log("❌ PWA install dismissed.");
+    }
+
+    deferredPrompt = null;
+  });
+
+  // Optional: hide button once installed
+  window.addEventListener("appinstalled", () => {
+    console.log("🎉 App installed!");
+    installBtn.style.display = "none";
+  });
+</script>
+
   </body>
 </html>
