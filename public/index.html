@@ -4,7 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ZoomLite</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💻</text></svg>">
+    <link rel="icon" href="favicon.png" />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#1E40AF" />
 
     <!-- 🌀 Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -39,49 +41,54 @@
 
   <style>
     .video-container video {
-  border-radius: 14px;
-  transition: transform 0.25s ease-in-out;
-}
-
-.video-container:hover video {
-  transform: scale(1.02);
-  z-index: 10;
-}
-
-  /* Small pill badge on top of your own camera */
-  .self-view {
-    /* nothing required here—your inline JS styles still win;
-       this just makes sure the pseudo-element positions correctly
-       even when not fixed */
-    position: relative;
-  }
-  .self-view::after {
-    content: "You";
-    position: absolute;
-    top: 8px;
-    left: 8px;                 /* change to right:8px if you want it right-aligned */
-    padding: 2px 10px;
-    font-size: 12px;
-    line-height: 1;
-    font-weight: 600;
-    color: #fff;
-    background: rgba(0,0,0,0.55);
-    border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 9999px;
-    pointer-events: none;      /* don’t block clicks on buttons in PiP */
-    box-shadow: 0 2px 10px rgba(0,0,0,0.35);
-    backdrop-filter: blur(3px);          /* nice frosted look */
-    -webkit-backdrop-filter: blur(3px);  /* Safari */
-  }
-  /* Optional: tighten on very small phones */
-  @media (max-width: 380px) {
-    .self-view::after {
-      top: 6px;
-      left: 6px;
-      font-size: 11px;
-      padding: 2px 8px;
+      border-radius: 14px;
+      transition: transform 0.25s ease-in-out;
     }
-  }
+
+    .video-container:hover video {
+      transform: scale(1.02);
+      z-index: 10;
+    }
+
+    .self-view {
+      position: relative;
+    }
+    .self-view::after {
+      content: "You";
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      padding: 2px 10px;
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 600;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 9999px;
+      pointer-events: none;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+    }
+
+    @media (max-width: 380px) {
+      .self-view::after {
+        top: 6px;
+        left: 6px;
+        font-size: 11px;
+        padding: 2px 8px;
+      }
+    }
+
+    @keyframes pop {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop {
+  animation: pop 0.25s ease-out forwards;
+}
+
   </style>
 
   <body
@@ -100,7 +107,6 @@
         </h2>
         <p class="text-slate-400 mb-4">Enter your name to continue:</p>
 
-        <!-- Avatar Preview -->
         <div
           id="avatarPreview"
           class="mx-auto mb-4 w-20 h-20 rounded-full flex items-center justify-center text-3xl font-semibold text-white transition-all duration-300 select-none shadow-md"
@@ -129,10 +135,7 @@
       class="py-4 flex justify-center items-center gap-3 bg-slate-900/60 backdrop-blur-md border-b border-slate-700 shadow-md"
     >
       <h1 class="text-2xl font-display font-semibold">ZoomLite</h1>
-      <span
-        id="roomDisplay"
-        class="text-slate-400 font-medium text-base tracking-wide"
-      ></span>
+      <span id="roomDisplay" class="text-slate-400 font-medium text-base"></span>
     </header>
 
     <!-- 🎛 Controls -->
@@ -148,11 +151,7 @@
         >
           <i class="ri-add-circle-line"></i>
         </button>
-        <input
-          id="room"
-          placeholder="Enter Room ID"
-          class="hidden px-3 py-2 rounded-lg bg-slate-700 text-slate-200 border border-slate-600"
-        />
+
         <button
           id="joinRoomBtn"
           class="w-12 h-12 flex items-center justify-center rounded-full bg-slate-700 hover:bg-accent2/80 transition-all text-xl"
@@ -160,6 +159,15 @@
         >
           <i class="ri-login-circle-line"></i>
         </button>
+
+        <button
+  id="contactsMainBtn"
+  class="w-12 h-12 flex items-center justify-center rounded-full bg-slate-700 hover:bg-green-500 transition-all text-xl"
+  title="Contacts"
+>
+  <i class="ri-contacts-line"></i>
+</button>
+
       </div>
 
       <div id="activeControls" class="hidden flex gap-3">
@@ -167,7 +175,6 @@
           id="leaveBtn"
           disabled
           class="w-12 h-12 rounded-full bg-slate-700 hover:bg-red-600 flex items-center justify-center transition-all text-xl disabled:opacity-40"
-          title="Leave"
         >
           <i class="ri-logout-circle-r-line"></i>
         </button>
@@ -175,7 +182,6 @@
           id="toggleVideoBtn"
           disabled
           class="w-12 h-12 rounded-full bg-slate-700 hover:bg-accent1 flex items-center justify-center transition-all text-xl disabled:opacity-40"
-          title="Toggle Camera"
         >
           <i class="ri-camera-fill"></i>
         </button>
@@ -183,7 +189,6 @@
           id="toggleAudioBtn"
           disabled
           class="w-12 h-12 rounded-full bg-slate-700 hover:bg-accent1 flex items-center justify-center transition-all text-xl disabled:opacity-40"
-          title="Toggle Mic"
         >
           <i class="ri-mic-fill"></i>
         </button>
@@ -191,14 +196,12 @@
           id="shareScreenBtn"
           disabled
           class="w-12 h-12 rounded-full bg-slate-700 hover:bg-accent2 flex items-center justify-center transition-all text-xl disabled:opacity-40"
-          title="Share Screen"
         >
           <i class="ri-computer-line"></i>
         </button>
         <button
           id="chatToggleBtn"
           class="w-12 h-12 rounded-full bg-slate-700 hover:bg-accent1 flex items-center justify-center transition-all text-xl"
-          title="Chat"
         >
           <i class="ri-chat-3-line"></i>
         </button>
@@ -217,10 +220,7 @@
         id="chatPanel"
         class="w-0 opacity-0 overflow-hidden flex flex-col bg-slate-900/90 backdrop-blur-md border-l border-slate-800 transition-all duration-300"
       >
-        <div
-          id="chatMessages"
-          class="flex-1 overflow-y-auto p-4 space-y-2 text-sm"
-        ></div>
+        <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
 
         <div class="border-t border-slate-800 p-3 flex gap-2">
           <input
@@ -237,6 +237,24 @@
           </button>
         </div>
       </div>
+
+      <!-- 👥 Contacts Panel -->
+<div
+  id="contactsPanel"
+  class="w-0 opacity-0 overflow-hidden flex flex-col bg-slate-900/90 backdrop-blur-md border-l border-slate-800 transition-all duration-300"
+>
+  <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+    <h2 class="text-lg font-semibold text-slate-200">Contacts</h2>
+    <button id="closeContacts" class="text-slate-400 hover:text-slate-200 text-lg">
+      <i class="ri-close-line"></i>
+    </button>
+  </div>
+
+  <div id="contactsList" class="flex-1 overflow-y-auto p-4 space-y-2">
+    <p class="text-slate-400 text-sm">No contacts yet</p>
+  </div>
+</div>
+
     </div>
 
     <!-- 🦶 Footer -->
@@ -246,11 +264,14 @@
       Built with ❤️ by Rizwan
     </footer>
 
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="main.js"></script>
+   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="main.js"></script>
+
 
     <script>
       document.addEventListener("DOMContentLoaded", () => {
+        console.log("🧠 DOMContentLoaded fired. saveNameBtn:", document.getElementById("saveNameBtn"));
+
         const nameModal = document.getElementById("nameModal");
         const saveNameBtn = document.getElementById("saveNameBtn");
         const nameInput = document.getElementById("nameInput");
@@ -279,21 +300,37 @@
           updatePreview(e.target.value)
         );
 
+        saveNameBtn.onclick = () => {
+  console.log("👆 Save button clicked!");
+  const name = nameInput.value.trim();
+  if (!name) return alert("Please enter your name!");
+  console.log("🧍 Name entered:", name);
+  setName(name);
+};
+
+
         function setName(name) {
+          console.log("💾 setName() called with:", name);
+
           const letter = name.charAt(0).toUpperCase();
           const gradient = generateGradient(name);
-
           localStorage.setItem(
             "userData",
             JSON.stringify({ name, avatar: { letter, gradient } })
           );
-
           nameModal.style.display = "none";
           setTimeout(() => {
             window.dispatchEvent(
               new CustomEvent("nameSet", { detail: name })
             );
           }, 50);
+
+console.log("🧠 Registering user on Socket.io");
+if (window.socket && name) {
+  socket.emit("register-user", name);
+}
+
+
         }
 
         const saved = JSON.parse(localStorage.getItem("userData"));
@@ -311,6 +348,13 @@
           if (e.key === "Enter") saveNameBtn.click();
         });
       });
+
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("service-worker.js")
+          .then(() => console.log("✅ Service Worker registered"))
+          .catch((err) => console.error("Service Worker error:", err));
+      }
     </script>
   </body>
 </html>
