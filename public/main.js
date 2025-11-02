@@ -571,7 +571,7 @@ function resizeGrid() {
   const containers = videoGrid.querySelectorAll(".video-container:not(.self-view)");
   const count = containers.length;
 
-  // Reset layout
+  // 🧽 Clean layout for all video containers
   containers.forEach((c) => {
     Object.assign(c.style, {
       position: "relative",
@@ -583,74 +583,171 @@ function resizeGrid() {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
+      background: "rgba(0,0,0,0.45)",
+      boxShadow: "0 0 10px rgba(0,0,0,0.3)",
+      transition: "all 0.3s ease",
     });
-    // make the video fill its container fully
+
     const vid = c.querySelector("video");
     if (vid) {
       Object.assign(vid.style, {
         width: "100%",
         height: "100%",
         objectFit: "cover",
+        display: "block",
+        borderRadius: "inherit",
       });
     }
   });
 
-  // Reset grid classes
+  // 🧩 Reset grid
   videoGrid.className = "";
-  videoGrid.classList.add("flex-1", "bg-slate-950", "grid", "gap-4", "p-4");
-  videoGrid.style.position = "relative"; // 👈 necessary for absolute positioning
+  videoGrid.classList.add("flex-1", "bg-slate-950", "grid", "gap-3", "p-3");
+  videoGrid.style.position = "relative";
 
-  // Determine grid based on participant count
-  let cols = 1;
-  if (count === 1) cols = 1;
-  else if (count === 2) cols = 2;
-  else if (count <= 4) cols = 2;
-  else if (count <= 6) cols = 3;
-  else if (count <= 9) cols = 3;
-  else if (count <= 12) cols = 4;
-  else cols = 4;
+  // 📱 Detect screen size
+  const isMobile = window.innerWidth < 768;
+  const isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
+
+  // 🧠 Smart grid logic
+  let cols;
+  if (isMobile) {
+    if (count === 1) cols = 1;
+    else if (count === 2) cols = 1;
+    else if (count <= 4) cols = 2;
+    else if (count <= 6) cols = 2;
+    else cols = 3;
+  } else if (isTablet) {
+    if (count <= 2) cols = 2;
+    else if (count <= 4) cols = 2;
+    else if (count <= 6) cols = 3;
+    else cols = 3;
+  } else {
+    if (count === 1) cols = 1;
+    else if (count === 2) cols = 2;
+    else if (count <= 4) cols = 2;
+    else if (count <= 6) cols = 3;
+    else if (count <= 9) cols = 3;
+    else if (count <= 12) cols = 4;
+    else cols = 4;
+  }
 
   const rows = Math.ceil(count / cols);
-  videoGrid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-  videoGrid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
-
-// 🎥 self-view overlay (bottom-right, fixed to viewport)
-const selfView = document.querySelector(".self-view");
-if (selfView) {
-  // calculate right position based on chat panel state
-  const chatIsOpen = chatPanel.classList.contains("open");
-  const rightOffset = chatIsOpen ? "calc(320px + 1rem)" : "1rem";
-
-  // perfect bottom-right placement
-  Object.assign(selfView.style, {
-    position: "fixed",
-    bottom: "4.5rem", // 👈 keeps it nicely above the footer
-    right: rightOffset,
-    width: "240px",
-    height: "170px",
-    borderRadius: "14px",
-    overflow: "hidden",
-    zIndex: "50",
-    boxShadow: "0 6px 30px rgba(0,0,0,0.6)",
-    background: "#000",
-    transition: "all 0.25s cubic-bezier(.2,.9,.2,1)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    pointerEvents: "auto",
+  Object.assign(videoGrid.style, {
+    gridTemplateColumns: `repeat(${cols}, 1fr)`,
+    gridTemplateRows: `repeat(${rows}, 1fr)`,
+    justifyItems: "stretch",
+    alignItems: "stretch",
+    height: "100%",
+    width: "100%",
   });
 
-  // make the video fill perfectly
-  const vid = selfView.querySelector("video");
-  if (vid) {
-    Object.assign(vid.style, {
+  // 📏 Force all boxes to fill grid
+  containers.forEach((c) => {
+    Object.assign(c.style, {
       width: "100%",
       height: "100%",
-      objectFit: "cover",
-      display: "block",
+      aspectRatio: "auto",
     });
+  });
+
+  // 🎥 Self-view (only PiP on non-mobile)
+  const selfView = document.querySelector(".self-view");
+  if (selfView) {
+    if (isMobile) {
+      // 👇 Make self-view join the grid
+      Object.assign(selfView.style, {
+        position: "relative",
+        bottom: "auto",
+        right: "auto",
+        width: "100%",
+        height: "100%",
+        borderRadius: "12px",
+        zIndex: "1",
+        boxShadow: "none",
+        background: "rgba(0,0,0,0.45)",
+        pointerEvents: "auto",
+      });
+
+      // make sure it’s *inside* the grid properly
+      if (!videoGrid.contains(selfView)) {
+        videoGrid.appendChild(selfView);
+      }
+    } else {
+      // 💻 Normal desktop PiP bottom-right
+      const chatIsOpen = chatPanel.classList.contains("open");
+      const rightOffset = chatIsOpen ? "calc(320px + 1rem)" : "1rem";
+
+      Object.assign(selfView.style, {
+        position: "fixed",
+        bottom: "4.5rem",
+        right: rightOffset,
+        width: "260px",
+        height: "185px",
+        borderRadius: "14px",
+        overflow: "hidden",
+        zIndex: "99",
+        boxShadow: "0 6px 30px rgba(0,0,0,0.6)",
+        background: "#000",
+        transition: "all 0.25s cubic-bezier(.25,.8,.25,1)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        pointerEvents: "auto",
+        backdropFilter: "blur(6px)",
+        border: "1px solid rgba(255,255,255,0.08)",
+      });
+
+      // ensure it's appended last (top layer)
+      document.body.appendChild(selfView);
+    }
+
+    // make video fill container always
+    const vid = selfView.querySelector("video");
+    if (vid) {
+      Object.assign(vid.style, {
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        borderRadius: "inherit",
+      });
+    }
   }
+  // 🧍 If alone in the room on mobile — go full screen
+if (isMobile && count === 0) {
+  const selfView = document.querySelector(".self-view");
+  if (selfView) {
+    Object.assign(selfView.style, {
+      position: "relative",
+      width: "100vw",
+      height: "calc(100vh - 5rem)", // subtracts navbar height if you have one
+      borderRadius: "0",
+      zIndex: "1",
+      boxShadow: "none",
+      background: "#000",
+      margin: "0",
+    });
+
+    const vid = selfView.querySelector("video");
+    if (vid) {
+      Object.assign(vid.style, {
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        borderRadius: "0",
+      });
+    }
+  }
+
+  // prevent grid from squishing
+  Object.assign(videoGrid.style, {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+  });
 }
+
 }
 
 // 🔁 Recalculate layout on window resize or orientation change
