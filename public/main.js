@@ -1,4 +1,4 @@
-// main.js — ZoomLite Avatar Synced + Blue Electric Speaker Glow ⚡️
+// main.js — ZoomLite Avatar Synced + FCM FIXED ⚡️
 
 const SERVER =
   location.hostname === "localhost"
@@ -7,16 +7,16 @@ const SERVER =
 
 const socket = io(SERVER);
 
-// ---- Persisted user data from index.html modal ----
+// ---- Persisted user data ----
 let userData = JSON.parse(localStorage.getItem("userData")) || null;
 let userName = userData?.name || null;
 let avatarData = userData?.avatar || null;
 
 // ---- WebRTC state ----
-const pcs = {};                    // peerId -> RTCPeerConnection
-const remoteVideoEls = {};         // peerId -> <video>
-const peerContainers = {};         // peerId -> .video-container (for glow)
-const peerNames = {};              // peerId -> name (from 'new-peer' event)
+const pcs = {};
+const remoteVideoEls = {};
+const peerContainers = {};
+const peerNames = {};
 let localStream = null;
 let roomId = null;
 
@@ -29,9 +29,7 @@ function ensureAudioContext() {
   }
 }
 
-const vadLoops = new Map(); // streamId -> { rafId, analyser, source, container }
-
-// ---- ICE config ----
+const vadLoops = new Map();
 const cfg = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
@@ -43,11 +41,12 @@ const cfg = {
   ],
 };
 
-// ---- Elements ----
+// ---- UI elements ----
 const videoGrid = document.getElementById("videoGrid");
 const createRoomBtn = document.getElementById("createRoomBtn");
 const joinRoomBtn = document.getElementById("joinRoomBtn");
-const roomInput = document.getElementById("room");
+const roomDisplay = document.getElementById("roomDisplay");
+const activeControls = document.getElementById("activeControls");
 const leaveBtn = document.getElementById("leaveBtn");
 const toggleVideoBtn = document.getElementById("toggleVideoBtn");
 const toggleAudioBtn = document.getElementById("toggleAudioBtn");
@@ -57,8 +56,86 @@ const chatPanel = document.getElementById("chatPanel");
 const sendChatBtn = document.getElementById("sendChatBtn");
 const chatInput = document.getElementById("chatin");
 const chatMessages = document.getElementById("chatMessages");
-const roomDisplay = document.getElementById("roomDisplay");
-const activeControls = document.getElementById("activeControls");
+
+let contacts = JSON.parse(localStorage.getItem("contacts")) || [];
+
+function saveContact(name, avatarData) {
+  // prevent duplicates
+  const exists = contacts.some(c => c.name === name);
+  if (exists) return;
+
+  // add to list
+  const newContact = { name, avatar: avatarData };
+  contacts.push(newContact);
+
+  // save permanently
+  localStorage.setItem("contacts", JSON.stringify(contacts));
+
+  if (name === userName) return;
+
+  // render immediately if panel is open
+  renderContactsList();
+}
+
+
+function renderContactsList() {
+  const list = document.getElementById("contactsList");
+  if (!list) return;
+
+  list.innerHTML = "";
+
+  if (contacts.length === 0) {
+    list.innerHTML = `<p class="text-slate-400 text-sm">No contacts yet</p>`;
+    return;
+  }
+
+  contacts.forEach(({ name, avatar }) => {
+    const item = document.createElement("div");
+    item.className =
+      "flex justify-between items-center p-2 bg-slate-800/60 rounded-lg border border-slate-700 hover:bg-slate-700/50 transition";
+
+    item.innerHTML = `
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center font-semibold text-white text-sm"
+             style="background:${avatar?.gradient || 'linear-gradient(135deg,#3b82f6,#2563eb)'}">
+          ${avatar?.letter || name.charAt(0).toUpperCase()}
+        </div>
+        <span class="text-slate-200 font-medium">${name}</span>
+      </div>
+    <button 
+  class="px-3 py-1 text-sm rounded bg-accent1 hover:bg-accent2 transition"
+  onclick="startCall('${name}')">
+  📞 Call
+</button>
+
+    `;
+
+
+    // Handle calling action
+    const callBtn = item.querySelector("button");
+    callBtn.onclick = () => {
+      console.log(`📞 Calling ${name}...`);
+      socket.emit("call-user", { from: userName, to: name });
+    };
+
+    list.appendChild(item);
+  });
+}
+
+
+    // 📞 Start a direct call
+function startCall(targetName) {
+  const target = contacts.find((c) => c.name === targetName);
+  if (!target) return alert("Contact not found!");
+
+  const isOnline = window.onlineUsers.includes(targetName);
+  if (!isOnline) return alert(`${targetName} is offline.`);
+
+  socket.emit("call-user", { from: userName, to: targetName });
+  showToast(`📞 Calling ${targetName}...`);
+}
+
+
 
 // ---- Helpers: Avatar generation (uses saved gradient if available for self) ----
 function generateAvatar(name, peerId, savedGradient) {
@@ -194,47 +271,57 @@ async function startMeeting(room) {
   sendChatBtn.disabled = false;
 
   await startLocalMedia();
-  const videoOn = localStream?.getVideoTracks()?.[0]?.enabled ?? true;
-socket.emit("join-room", room, {
-  name: userName,
-  avatar: avatarData,
-  videoEnabled: videoOn,
-});
 
+  // ✅ Tell backend you're joining this room
+  socket.emit("join-room", room, {
+    name: userName,
+    avatar: avatarData,
+    videoEnabled: true,
+  });
 
+  roomId = room;
+  roomDisplay.textContent = `Room ID: ${room}`;
   appendChat({ msg: "Waiting for others to join...", sender: "System" });
 }
 
-
-// ---- Local media + self-view ----
-async function startLocalMedia() {
-  try {
-    localStream = await navigator.mediaDevices.getUserMedia({
-  video: {
-    width: { ideal: 1920 },   // target 1080p
-    height: { ideal: 1080 },
-    frameRate: { ideal: 30, max: 60 },
-    facingMode: "user"        // front camera on mobile
-  },
-  audio: {
-    echoCancellation: true,
-    noiseSuppression: true,
-    autoGainControl: true,
-  },
+socket.on("add-contact", (contactInfo) => {
+  if (!contactInfo?.name) return;
+  console.log(`👥 Mutual contact added: ${contactInfo.name}`);
+  saveContact(contactInfo.name, contactInfo.avatar);
 });
 
 
+
+async function startLocalMedia() {
+  try {
+    console.log("🎥 Starting local camera...");
+
+    localStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        frameRate: { ideal: 30, max: 60 },
+        facingMode: "user"
+      },
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+
+    // 🧱 Make container first
     const container = document.createElement("div");
     container.className =
       "video-container self-view absolute w-44 h-32 bottom-4 right-4 rounded-xl overflow-hidden border border-slate-700 shadow-lg bg-black/40";
     peerContainers["self"] = container;
 
-    // Avatar (synced gradient from modal)
+    // Avatar (invisible by default)
     const avatar = generateAvatar(userName, "self", avatarData?.gradient);
     avatar.style.display = "none";
     container.appendChild(avatar);
 
-    // Video
+    // 🎥 Actual video
     const video = document.createElement("video");
     video.autoplay = true;
     video.muted = true;
@@ -242,16 +329,27 @@ async function startLocalMedia() {
     video.srcObject = localStream;
     container.appendChild(video);
 
+    // 🧠 Attach to grid *before* playing
     videoGrid.appendChild(container);
     resizeGrid();
 
-    // Start VAD glow for self
+    // 🧃 Kickstart autoplay properly (mobile Chrome fix)
+    await video.play().catch(() => {
+      console.warn("🔇 Autoplay blocked — user gesture required");
+    });
+
+    // 🧠 Keep the track references
+    console.log("✅ Local media started:", localStream.getTracks());
+
+    // 🎤 Start voice activity glow
+    ensureAudioContext();
     startVAD(localStream, container);
   } catch (err) {
-    console.error("Media error:", err);
+    console.error("🚨 Media error:", err);
     alert("Camera or microphone access denied!");
   }
 }
+
 
 // ---- Controls ----
 toggleAudioBtn.onclick = () => {
@@ -362,6 +460,30 @@ chatToggleBtn.onclick = () => {
 };
 
 
+const contactsMainBtn = document.getElementById("contactsMainBtn");
+const contactsPanel = document.getElementById("contactsPanel");
+const closeContacts = document.getElementById("closeContacts");
+
+contactsMainBtn.onclick = () => {
+  const isOpen = contactsPanel.classList.contains("open");
+  if (isOpen) {
+    contactsPanel.classList.remove("open");
+    contactsPanel.style.width = "0";
+    contactsPanel.style.opacity = "0";
+  } else {
+    contactsPanel.classList.add("open");
+    contactsPanel.style.width = "320px";
+    contactsPanel.style.opacity = "1";
+  }
+};
+
+closeContacts.onclick = () => {
+  contactsPanel.classList.remove("open");
+  contactsPanel.style.width = "0";
+  contactsPanel.style.opacity = "0";
+};
+
+
 sendChatBtn.onclick = sendChat;
 chatInput.addEventListener("keypress", (e) => e.key === "Enter" && sendChat());
 function sendChat() {
@@ -373,15 +495,46 @@ function sendChat() {
 }
 socket.on("chat", (m) => appendChat({ msg: m.msg, sender: m.sender }));
 
-// ---- Signalling ----
-socket.on("connect", () => console.log("✅ Connected:", socket.id));
+socket.on("connect", () => {
+  console.log("✅ Connected:", socket.id);
+  if (userName) {
+    console.log("🧠 Re-registering user:", userName);
+    socket.emit("register-user", userName);
+  }
+});
+
+
+// 🟢 Track online users
+window.onlineUsers = [];
+
+socket.on("online-users", (users) => {
+  window.onlineUsers = users;
+  renderContactsList();
+});
+
+socket.on("user-online", (name) => {
+  if (!window.onlineUsers.includes(name)) window.onlineUsers.push(name);
+  renderContactsList();
+});
+
+socket.on("user-offline", (name) => {
+  window.onlineUsers = window.onlineUsers.filter((n) => n !== name);
+  renderContactsList();
+});
+
 
 // When new peer joins
 socket.on("new-peer", ({ peerId, info }) => {
   peerNames[peerId] = info?.name || "User";
   peerInfoCache[peerId] = info;
   appendChat({ msg: `${peerNames[peerId]} joined the meeting.`, sender: "System" });
+
+  // 🧠 Auto-save to contacts
+  if (info?.name && info?.avatar) {
+    saveContact(info.name, info.avatar);
+  }
 });
+
 const peerInfoCache = {}; // peerId -> { name, avatar, videoEnabled }
 
 // When receiving existing peers
@@ -753,5 +906,88 @@ if (isMobile && count === 0) {
 // 🔁 Recalculate layout on window resize or orientation change
 window.addEventListener("resize", resizeGrid);
 window.addEventListener("orientationchange", resizeGrid);
+renderContactsList();
+
+function showToast(msg) {
+  const toast = document.createElement("div");
+  toast.className = "fixed bottom-5 right-5 bg-slate-800 text-white px-4 py-2 rounded-lg shadow-lg opacity-90 z-50";
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+}
+
+socket.on("add-contact", (contactInfo) => {
+  if (!contactInfo?.name) return;
+  saveContact(contactInfo.name, contactInfo.avatar);
+  showToast(`👋 ${contactInfo.name} added to your contacts`);
+});
 
 
+
+window.addEventListener("nameSet", async () => {
+  console.log("🎯 Event: nameSet triggered — waiting 1s for Firebase...");
+  await new Promise((r) => setTimeout(r, 1000));
+  
+  // 🧠 make sure server knows who you are
+  socket.emit("register-user", userName);
+
+  if (typeof registerUserFCM === "function") {
+    registerUserFCM();
+  }
+});
+
+
+
+// 🎵 Ringtone
+const ringtone = new Audio("ringtone.mp3");
+ringtone.loop = true;
+
+// 📩 Incoming call
+socket.on("incoming-call", ({ from }) => {
+  console.log(`📞 Incoming call from ${from}`);
+  ringtone.play();
+
+  const modal = document.createElement("div");
+  modal.className =
+    "fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-[9999]";
+  modal.innerHTML = `
+    <div class="bg-slate-800/90 rounded-2xl p-6 shadow-2xl border border-slate-700 text-center animate-pop">
+      <h2 class="text-xl font-semibold mb-3">📞 Incoming Call</h2>
+      <p class="text-slate-300 mb-5">${from} is calling you...</p>
+      <div class="flex justify-center gap-4">
+        <button id="acceptCall" class="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 transition">Accept</button>
+        <button id="rejectCall" class="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 transition">Reject</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  const acceptBtn = modal.querySelector("#acceptCall");
+  const rejectBtn = modal.querySelector("#rejectCall");
+
+  acceptBtn.onclick = () => {
+    ringtone.pause();
+    modal.remove();
+    const roomId = `${from}-${userName}-${Date.now()}`;
+    socket.emit("accept-call", { from, roomId });
+    startMeeting(roomId);
+  };
+
+  rejectBtn.onclick = () => {
+    ringtone.pause();
+    modal.remove();
+    socket.emit("reject-call", { from });
+  };
+});
+
+// 💚 Call accepted
+socket.on("call-accepted", ({ roomId, by }) => {
+  showToast(`✅ ${by} accepted your call`);
+  startMeeting(roomId);
+});
+
+// 💔 Call rejected
+socket.on("call-rejected", ({ by }) => {
+  ringtone.pause();
+  showToast(`❌ ${by} rejected your call`);
+});
