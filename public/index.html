@@ -36,6 +36,53 @@
     />
   </head>
 
+  <style>
+    .video-container video {
+  border-radius: 14px;
+  transition: transform 0.25s ease-in-out;
+}
+
+.video-container:hover video {
+  transform: scale(1.02);
+  z-index: 10;
+}
+
+  /* Small pill badge on top of your own camera */
+  .self-view {
+    /* nothing required here—your inline JS styles still win;
+       this just makes sure the pseudo-element positions correctly
+       even when not fixed */
+    position: relative;
+  }
+  .self-view::after {
+    content: "You";
+    position: absolute;
+    top: 8px;
+    left: 8px;                 /* change to right:8px if you want it right-aligned */
+    padding: 2px 10px;
+    font-size: 12px;
+    line-height: 1;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(0,0,0,0.55);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 9999px;
+    pointer-events: none;      /* don’t block clicks on buttons in PiP */
+    box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+    backdrop-filter: blur(3px);          /* nice frosted look */
+    -webkit-backdrop-filter: blur(3px);  /* Safari */
+  }
+  /* Optional: tighten on very small phones */
+  @media (max-width: 380px) {
+    .self-view::after {
+      top: 6px;
+      left: 6px;
+      font-size: 11px;
+      padding: 2px 8px;
+    }
+  }
+  </style>
+
   <body
     class="bg-darkbg text-slate-100 flex flex-col h-screen font-sans overflow-hidden"
   >
