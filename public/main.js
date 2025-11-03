@@ -765,11 +765,15 @@ function resizeGrid() {
   // 🧠 Smart grid logic
   let cols;
   if (isMobile) {
-    if (count === 1) cols = 1;
-    else if (count === 2) cols = 1;
-    else if (count <= 4) cols = 2;
-    else if (count <= 6) cols = 2;
-    else cols = 3;
+  if (count === 1) cols = 1;
+  else if (count === 2) cols = 2;
+  else if (count <= 4) cols = 2;
+  else if (count <= 6) cols = 3;
+  else cols = 3;
+
+  // force square layout look
+  videoGrid.style.gridAutoRows = "minmax(120px, 1fr)";
+  videoGrid.style.gridAutoColumns = "minmax(120px, 1fr)";
   } else if (isTablet) {
     if (count <= 2) cols = 2;
     else if (count <= 4) cols = 2;
